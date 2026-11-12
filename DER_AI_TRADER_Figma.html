@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI TRADER — Modelo lógico em 3FN</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: #0f172a; background: #f1f5f9;
+  }
+  .figma-canvas {
+    max-width: 1800px; margin: auto; padding: 32px;
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 16px;
+    box-shadow: 0 16px 40px -20px #64748b40;
+  }
+  .figma-header { display: flex; align-items: center; gap: 18px; margin-bottom: 24px; }
+  .figma-icon {
+    display: grid; place-items: center; flex-shrink: 0; width: 56px; height: 56px;
+    background: linear-gradient(135deg, #7c3aed, #db2777); border-radius: 14px;
+    color: #fff; font-weight: 800;
+  }
+  h1 { margin: 0 0 6px; font-size: 26px; }
+  .subtitle, .hint { color: #475569; font-size: 13px; line-height: 1.6; margin: 0; }
+  .summary { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+  .summary span { padding: 7px 12px; border: 1px solid #ddd6fe; background: #f5f3ff; color: #5b21b6; border-radius: 8px; font-size: 13px; }
+  .notice { padding: 14px 18px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; font-size: 13px; line-height: 1.65; margin: 18px 0; }
+  .toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; padding: 18px 0; }
+  .toolbar label { display: grid; gap: 6px; font-size: 12px; font-weight: 600; color: #475569; }
+  select, button, .download {
+    padding: 10px 14px; min-height: 42px; border: 1px solid #cbd5e1; border-radius: 8px;
+    background: #fff; color: #0f172a; font: inherit; font-size: 13px;
+  }
+  button, .download { cursor: pointer; font-weight: 600; }
+  button { color: #fff; background: #6d28d9; border-color: #6d28d9; }
+  button:hover { background: #5b21b6; }
+  a { color: #5b21b6; text-underline-offset: 3px; }
+  .download { text-decoration: none; display: inline-flex; align-items: center; }
+  :focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 20px; padding: 14px 0; border-top: 1px solid #e2e8f0; font-size: 12px; color: #475569; }
+  .legend strong { margin-right: 4px; }
+  .pk { color: #047857; } .fk { color: #1d4ed8; }
+  .diagram-sheet { margin: 24px 0; border: 1px solid #dbe2eb; border-radius: 12px; overflow: hidden; }
+  .sheet-header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; align-items: center; padding: 16px 20px; background: #f8fafc; border-top: 4px solid var(--module-color); }
+  .sheet-header h2 { margin: 0; font-size: 17px; color: var(--module-color); }
+  .sheet-header span { font-size: 12px; color: #475569; }
+  .sheet-diagram { overflow: auto; padding: 14px; }
+  .sheet-diagram svg { display: block; width: var(--diagram-width, 100%); height: auto; max-width: none; }
+  .sheet-caption { margin: 0; padding: 12px 20px; border-top: 1px solid #e2e8f0; font-size: 12px; line-height: 1.6; color: #475569; }
+  .figma-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; padding-top: 20px; border-top: 1px solid #e2e8f0; font-size: 13px; line-height: 1.7; }
+  #render-status { padding: 18px; border: 1px solid #fca5a5; background: #fff1f2; }
+  [hidden] { display: none !important; }
+  @media (max-width: 700px) {
+    body { padding: 12px; } .figma-canvas { padding: 18px; }
+    h1 { font-size: 21px; } .figma-icon { width: 46px; height: 46px; }
+    .toolbar label, .toolbar button, .toolbar .download { width: 100%; }
+    select { max-width: 100%; }
+  }
+  @page { size: A3 landscape; margin: 10mm; }
+  @media print {
+    * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    body { margin: 0; padding: 0; background: #fff; }
+    .figma-canvas { max-width: none; padding: 0; margin: 0; border: 0; border-radius: 0; box-shadow: none; }
+    .screen-only { display: none !important; }
+    .diagram-sheet, .diagram-sheet[hidden] {
+      display: block !important; margin: 0; border: 0; border-radius: 0;
+      overflow: visible; break-inside: avoid; break-after: page; page-break-after: always;
+    }
+    .diagram-sheet:last-child { break-after: auto; page-break-after: auto; }
+    .sheet-header { padding: 8px 12px; }
+    .sheet-header h2 { font-size: 16px; }
+    .sheet-diagram { overflow: visible; padding: 0; }
+    .sheet-diagram svg { width: 100% !important; height: auto; max-height: 239mm; }
+    .sheet-caption { padding: 6px 12px; font-size: 10px; }
+  }
+</style>
+</head>
+<body>
+<main class="figma-canvas">
+  <header class="figma-header screen-only">
+    <div class="figma-icon" aria-hidden="true">DER</div>
+    <div>
+      <h1>AI TRADER — Modelo lógico</h1>
+      <p class="subtitle">Normalização até a 3FN · PostgreSQL · Tabelas e integridade referencial</p>
+    </div>
+  </header>
+  <div id="summary" class="summary screen-only" aria-label="Resumo do modelo"></div>
+  <aside class="notice screen-only">
+    <strong>Adequação à atividade:</strong> tipos em todas as colunas, PK em todas as tabelas, FKs reais e campos obrigatórios marcados como <strong>NN</strong>.
+    Esta é uma proposta acadêmica; não altera o banco da aplicação.
+    <br><strong>Pendente para a entrega:</strong> conferir e salvar o modelo na conta da Squad no <strong>brModelo Web</strong>,
+    exportá-lo de lá, registrar os commits de cada integrante e postar o link do repositório. O PDF local não comprova essa etapa.
+  </aside>
+  <div class="toolbar screen-only">
+    <label>Módulo
+      <select id="module-filter"><option value="all">Todos os módulos</option></select>
+    </label>
+    <label>Visualização
+      <select id="zoom">
+        <option value="fit">Ajustar à largura</option>
+        <option value="75">75% — leitura ampliada</option>
+        <option value="100">100% — tamanho original</option>
+      </select>
+    </label>
+    <button id="print-button" type="button">Imprimir / salvar PDF</button>
+    <a class="download" href="database/modelo_logico.pdf" download>Baixar PDF gerado</a>
+  </div>
+  <p class="hint screen-only">Use 75% ou 100% para ampliar e role dentro de cada folha. A impressão sempre inclui todos os módulos, em A3 paisagem.</p>
+  <div class="legend screen-only">
+    <span><strong class="pk">PK</strong> Chave primária</span>
+    <span><strong class="fk">FK</strong> Chave estrangeira</span>
+    <span><strong>NN</strong> NOT NULL</span>
+    <span><strong>NULL</strong> Opcional</span>
+    <span><strong>UK</strong> UNIQUE composto</span>
+    <span><strong>1 : 0..N</strong> Pai : filhos</span>
+    <span>Caixa pontilhada = referência a outra folha</span>
+  </div>
+  <p id="render-status" role="alert">O modelo ainda não foi carregado. Se esta mensagem permanecer, confira se database/modelo_logico.js está junto do HTML e se o JavaScript está habilitado.</p>
+  <noscript><p>Ative o JavaScript para visualizar o modelo ou abra o PDF e o dicionário de dados.</p></noscript>
+  <div id="canvas"></div>
+  <footer class="figma-footer screen-only">
+    <span><a href="database/normalizacao.md">Normalização: antes e depois</a> · <a href="database/dicionario_dados.md">Dicionário completo e regras</a></span>
+    <span>Modelo lógico v2.0 · Fonte única compartilhada com o dicionário</span>
+  </footer>
+</main>
+<script src="database/modelo_logico.js"></script>
+<script>
+  'use strict';
+
+  const model = AI_TRADER_MODEL;
+  const canvas = document.getElementById('canvas');
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const WIDTH = 2000;
+  const CARD_WIDTH = 580;
+  const TOP = 32;
+  const sheetTables = 3;
+  const tablesByName = new Map(model.tables.map(table => [table.name, table]));
+  const svgStyle = `
+    text { font-family: 'Segoe UI', Arial, sans-serif; fill: #334155; }
+    .table-name { font-size: 20px; font-weight: 700; }
+    .table-meta, .column-heading { font-size: 12px; fill: #64748b; }
+    .column-heading { font-weight: 700; }
+    .field-name { font-family: Consolas, monospace; font-size: 16px; }
+    .field-type { font-family: Consolas, monospace; font-size: 14px; fill: #475569; }
+    .field-key { font-family: Consolas, monospace; font-size: 12px; font-weight: 700; }
+    .required { font-size: 13px; font-weight: 700; fill: #334155; }
+    .optional { font-size: 12px; fill: #64748b; }
+    .detail { font-family: Consolas, monospace; font-size: 12px; fill: #475569; }
+    .constraint { font-family: Consolas, monospace; font-size: 12px; fill: #475569; }
+    .pk-text { fill: #047857; } .fk-text { fill: #1d4ed8; }
+    .connector { fill: none; stroke: #64748b; stroke-width: 1.6; stroke-linejoin: round; }
+    .cardinality { font-family: Consolas, monospace; font-size: 12px; font-weight: 700; }
+    .reference-name { font-size: 15px; font-weight: 700; }
+    .reference-key { font-family: Consolas, monospace; font-size: 14px; fill: #1d4ed8; }
+    .reference-note { font-size: 12px; fill: #64748b; }
+  `;
+
+  function node(tag, attrs, parent, text) {
+    const element = document.createElementNS(svgNS, tag);
+    for (const [key, value] of Object.entries(attrs)) element.setAttribute(key, String(value));
+    if (text !== undefined) element.textContent = text;
+    parent.appendChild(element);
+    return element;
+  }
+
+  function wrap(text, length = 72) {
+    const lines = [];
+    let line = '';
+    for (const word of text.split(' ')) {
+      if (line && (line.length + word.length + 1) > length) {
+        lines.push(line);
+        line = '';
+      }
+      line += (line ? ' ' : '') + word;
+    }
+    if (line) lines.push(line);
+    return lines;
+  }
+
+  function planTable(table, index) {
+    let offset = 96;
+    const rows = table.columns.map(col => {
+      const details = [];
+      if (col.references) details.push(`FK: ${col.references.table}.${col.references.column} | DELETE ${col.references.onDelete}`);
+      const constraints = [];
+      if (col.unique) constraints.push('UNIQUE');
+      if (col.default !== undefined) constraints.push(col.default.includes('IDENTITY') ? 'DEFAULT IDENTITY' : `DEFAULT ${col.default}`);
+      if (constraints.length) details.push(constraints.join(' | '));
+      const row = { column: col, offset, details, height: 34 + details.length * 18 };
+      offset += row.height;
+      return row;
+    });
+    const constraints = [
+      ...(table.unique || []).map((key, i) => `UK${i + 1} (${key.join(', ')})`),
+      ...(table.checks || []).map(check => `CHECK (${check})`)
+    ].flatMap(text => wrap(text));
+    const footerOffset = offset;
+    const height = offset + (constraints.length ? 22 + constraints.length * 17 : 10);
+    return { table, x: 32 + index * 660, y: TOP, height, rows, constraints, footerOffset };
+  }
+
+  function drawTable(svg, layout, color) {
+    const { table, x, y, height, rows } = layout;
+    const group = node('g', { 'data-table': table.name }, svg);
+    node('title', {}, group, `${table.name}: ${table.description}`);
+    node('rect', { x, y, width: CARD_WIDTH, height, rx: 10, fill: '#fff', stroke: '#cbd5e1', 'stroke-width': 1.5 }, group);
+    node('rect', { x, y, width: CARD_WIDTH, height: 62, rx: 10, fill: color, 'fill-opacity': 0.08 }, group);
+    node('text', { x: x + 18, y: y + 28, class: 'table-name' }, group, table.name.toUpperCase());
+    node('text', { x: x + 18, y: y + 49, class: 'table-meta' }, group,
+      `${table.columns.length} colunas | PK (${table.columns.filter(col => col.pk).map(col => col.name).join(', ')})`);
+    node('text', { x: x + 14, y: y + 84, class: 'column-heading' }, group, 'CHAVE');
+    node('text', { x: x + 84, y: y + 84, class: 'column-heading' }, group, 'COLUNA');
+    node('text', { x: x + 350, y: y + 84, class: 'column-heading' }, group, 'TIPO');
+    node('text', { x: x + 548, y: y + 84, class: 'column-heading', 'text-anchor': 'middle' }, group, 'NULO');
+    for (const row of rows) {
+      const col = row.column;
+      const rowY = y + row.offset;
+      const field = node('g', { 'data-column': `${table.name}.${col.name}` }, group);
+      node('title', {}, field, col.description);
+      node('line', { x1: x + 1, y1: rowY, x2: x + CARD_WIDTH - 1, y2: rowY, stroke: '#e2e8f0' }, field);
+      const key = [col.pk ? 'PK' : '', col.references ? 'FK' : ''].filter(Boolean).join('/');
+      if (key) {
+        node('rect', { x: x + 8, y: rowY + 6, width: 62, height: 21, rx: 4, fill: col.pk ? '#ecfdf5' : '#eff6ff' }, field);
+        node('text', { x: x + 39, y: rowY + 21, class: `field-key ${col.pk ? 'pk-text' : 'fk-text'}`, 'text-anchor': 'middle' }, field, key);
+      }
+      node('text', { x: x + 84, y: rowY + 22, class: `field-name ${col.pk ? 'pk-text' : col.references ? 'fk-text' : ''}` }, field, col.name);
+      node('text', { x: x + 350, y: rowY + 22, class: 'field-type' }, field, col.type);
+      node('text', { x: x + 548, y: rowY + 22, class: col.required ? 'required' : 'optional', 'text-anchor': 'middle' }, field, col.required ? 'NN' : 'NULL');
+      row.details.forEach((detail, index) => node('text', { x: x + 84, y: rowY + 41 + index * 18, class: 'detail' }, field, detail));
+    }
+    if (layout.constraints.length) {
+      node('line', { x1: x + 1, y1: y + layout.footerOffset, x2: x + CARD_WIDTH - 1, y2: y + layout.footerOffset, stroke: '#cbd5e1' }, group);
+      layout.constraints.forEach((text, index) => node('text', {
+        x: x + 16, y: y + layout.footerOffset + 23 + index * 17, class: 'constraint'
+      }, group, text));
+    }
+  }
+
+  function drawSheet(group, tables, pageNumber, modulePage, modulePages) {
+    const layouts = new Map(tables.map((table, index) => [table.name, planTable(table, index)]));
+    const edges = model.relationships.filter(rel => layouts.has(rel.childTable));
+    const externalNames = [...new Set(edges.filter(rel => !layouts.has(rel.parentTable)).map(rel => rel.parentTable))];
+    const bottom = Math.max(...[...layouts.values()].map(layout => layout.y + layout.height));
+    const referenceY = bottom + 44 + edges.length * 22;
+    const referenceWidth = externalNames.length ? (WIDTH - 64 - (externalNames.length - 1) * 20) / externalNames.length : 0;
+    const references = new Map(externalNames.map((name, index) => [name, {
+      x: 32 + index * (referenceWidth + 20), y: referenceY, width: referenceWidth
+    }]));
+    const height = referenceY + (externalNames.length ? 118 : 12);
+    const section = document.createElement('section');
+    section.className = 'diagram-sheet';
+    section.dataset.module = group.id;
+    section.style.setProperty('--module-color', group.color);
+    const header = document.createElement('header');
+    header.className = 'sheet-header';
+    const heading = document.createElement('h2');
+    heading.id = `sheet-title-${pageNumber}`;
+    heading.textContent = `${String(pageNumber).padStart(2, '0')} · ${group.label}${modulePages > 1 ? ` (${modulePage}/${modulePages})` : ''}`;
+    section.setAttribute('aria-labelledby', heading.id);
+    const subtitle = document.createElement('span');
+    subtitle.textContent = `AI TRADER | Modelo lógico · 3FN · PostgreSQL | ${tables.length} tabelas · ${edges.length} FKs`;
+    header.append(heading, subtitle);
+    const viewport = document.createElement('div');
+    viewport.className = 'sheet-diagram';
+    viewport.tabIndex = 0;
+    viewport.setAttribute('role', 'region');
+    viewport.setAttribute('aria-label', `Diagrama ampliável: ${group.label}`);
+    const svg = node('svg', {
+      viewBox: `0 0 ${WIDTH} ${height}`, xmlns: svgNS, role: 'img',
+      'aria-labelledby': `svg-title-${pageNumber} svg-desc-${pageNumber}`,
+      preserveAspectRatio: 'xMinYMin meet'
+    }, viewport);
+    node('title', { id: `svg-title-${pageNumber}` }, svg, `Modelo lógico: ${tables.map(table => table.name).join(', ')}`);
+    node('desc', { id: `svg-desc-${pageNumber}` }, svg, 'Cada coluna informa chave, tipo e nulabilidade. As linhas conectam FKs a chaves referenciadas. O dicionário em texto contém todos os detalhes.');
+    node('style', {}, svg, svgStyle);
+    node('rect', { width: WIDTH, height, fill: '#fff' }, svg);
+    const connectors = node('g', { class: 'connectors' }, svg);
+    edges.forEach((rel, index) => {
+      const source = layouts.get(rel.childTable);
+      const sourceRow = source.rows.find(row => row.column.name === rel.childColumn);
+      const sx = source.x + CARD_WIDTH;
+      const sy = source.y + sourceRow.offset + 17;
+      const sourceLane = sx + 10 + index * 2;
+      const laneY = bottom + 28 + index * 22;
+      let tx, ty, path;
+      if (layouts.has(rel.parentTable)) {
+        const target = layouts.get(rel.parentTable);
+        const targetRow = target.rows.find(row => row.column.name === rel.parentColumn);
+        tx = target.x + CARD_WIDTH;
+        ty = target.y + targetRow.offset + 17;
+        const targetLane = tx + 12 + index * 2;
+        path = `M ${sx} ${sy} H ${sourceLane} V ${laneY} H ${targetLane} V ${ty} H ${tx}`;
+      } else {
+        const target = references.get(rel.parentTable);
+        tx = target.x + target.width / 2;
+        ty = target.y;
+        path = `M ${sx} ${sy} H ${sourceLane} V ${laneY} H ${tx} V ${ty}`;
+      }
+      const edge = node('g', { 'data-relationship': rel.id }, connectors);
+      node('title', {}, edge, `${rel.id} referencia ${rel.parentTable}.${rel.parentColumn} | pai ${rel.parentCardinality} : filhos ${rel.childCardinality} | ON DELETE ${rel.onDelete}`);
+      node('path', { d: path, class: 'connector' }, edge);
+      node('circle', { cx: sx, cy: sy, r: 3, fill: '#2563eb' }, edge);
+      const labelX = Math.max(36, Math.min(WIDTH - 134, (sourceLane + tx) / 2 - 48));
+      node('rect', { x: labelX, y: laneY - 10, width: 110, height: 19, rx: 4, fill: '#fff', stroke: '#cbd5e1' }, edge);
+      node('text', { x: labelX + 55, y: laneY + 4, class: 'cardinality', 'text-anchor': 'middle' }, edge,
+        `${rel.parentCardinality} : ${rel.childCardinality}`);
+    });
+    for (const layout of layouts.values()) drawTable(svg, layout, group.color);
+    for (const [name, box] of references) {
+      const table = tablesByName.get(name);
+      const key = table.columns.find(col => col.pk);
+      const reference = node('g', { 'data-reference': name }, svg);
+      node('rect', { ...box, height: 92, rx: 8, fill: '#f8fafc', stroke: '#94a3b8', 'stroke-dasharray': '6 4' }, reference);
+      node('text', { x: box.x + 14, y: box.y + 23, class: 'reference-name' }, reference, name.toUpperCase());
+      node('text', { x: box.x + 14, y: box.y + 48, class: 'reference-key' }, reference, `PK ${key.name} : ${key.type}`);
+      node('text', { x: box.x + 14, y: box.y + 73, class: 'reference-note' }, reference, 'Referência · definida em outra folha');
+    }
+    const caption = document.createElement('p');
+    caption.className = 'sheet-caption';
+    caption.textContent = 'PK = chave primária · FK = chave estrangeira · NN = NOT NULL · NULL = opcional · UK = UNIQUE composto · Traços: pai : filhos (1 ou 0..1 : 0..N). Caixas pontilhadas repetem somente a chave de outra folha. Exportação local de apoio; salvamento no brModelo Web pendente.';
+    section.append(header, viewport, caption);
+    canvas.appendChild(section);
+  }
+
+  let pageNumber = 0;
+  for (const group of model.modules) {
+    const option = document.createElement('option');
+    option.value = group.id;
+    option.textContent = group.label;
+    document.getElementById('module-filter').appendChild(option);
+    const tables = model.tables.filter(table => table.module === group.id);
+    for (let start = 0; start < tables.length; start += sheetTables) {
+      drawSheet(group, tables.slice(start, start + sheetTables), ++pageNumber, start / sheetTables + 1, Math.ceil(tables.length / sheetTables));
+    }
+  }
+  const count = model.tables.reduce((total, table) => total + table.columns.length, 0);
+  for (const text of [`${model.tables.length} tabelas`, `${count} colunas tipadas`, `${model.relationships.length} FKs`, `${pageNumber} folhas`, '3FN documentada']) {
+    const badge = document.createElement('span');
+    badge.textContent = text;
+    document.getElementById('summary').appendChild(badge);
+  }
+  document.getElementById('render-status').hidden = true;
+  document.getElementById('module-filter').addEventListener('change', event => {
+    for (const sheet of canvas.children) sheet.hidden = event.target.value !== 'all' && sheet.dataset.module !== event.target.value;
+  });
+  document.getElementById('zoom').addEventListener('change', event => {
+    canvas.style.setProperty('--diagram-width', event.target.value === 'fit' ? '100%' : `${WIDTH * Number(event.target.value) / 100}px`);
+  });
+  document.getElementById('print-button').addEventListener('click', () => window.print());
+</script>
+</body>
+</html>
